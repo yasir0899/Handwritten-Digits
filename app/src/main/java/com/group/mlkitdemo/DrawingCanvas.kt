@@ -43,7 +43,7 @@ fun DrawingCanvas(
         Paint().apply {
             color = android.graphics.Color.BLACK
             style = Paint.Style.STROKE
-            strokeWidth = 30f // Increased stroke width to make it visible after resizing
+            strokeWidth = 15f // Increased stroke width to make it visible after resizing
             isAntiAlias = true
             strokeCap = Paint.Cap.ROUND
         }
@@ -75,45 +75,6 @@ fun DrawingCanvas(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ✅ Recognize Button (Now it returns the correct 28x28 image)
-//        Button(onClick = {
-//            if (!shouldRedraw) {
-//                Log.d("DrawingCanvas", "Path is empty! No drawing detected.")
-//                return@Button
-//            }
-//
-//            // Create a blank Bitmap
-//            val originalBitmap =
-//                Bitmap.createBitmap(canvasSize, canvasSize, Bitmap.Config.ARGB_8888)
-//            val originalCanvas = Canvas(originalBitmap)
-//
-//            // Fill the background with white
-//            originalCanvas.drawColor(android.graphics.Color.WHITE)
-//
-//            // Translate the path to ensure it is centered
-//            val bounds = RectF()
-//            path.computeBounds(bounds, true)
-//            val matrix = Matrix()
-//            matrix.setTranslate(-bounds.left, -bounds.top)
-//            path.transform(matrix)
-//
-//            // Scale the path to fit within the bitmap
-//            val scaleX = canvasSize / bounds.width()
-//            val scaleY = canvasSize / bounds.height()
-//            val scale = minOf(scaleX, scaleY) * 0.8f // Leave some margin
-//            matrix.setScale(scale, scale)
-//            path.transform(matrix)
-//
-//            // Draw the user's handwriting onto the bitmap
-//            originalCanvas.drawPath(path, paint)
-//
-//            // Resize to 28x28
-//            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 28, 28, true)
-//
-//            onBitmapReady(resizedBitmap) // Send processed bitmap
-//        }) {
-//            Text("Recognize")
-//        }
         Button(onClick = {
             if (!shouldRedraw) {
                 Log.d("DrawingCanvas", "Path is empty! No drawing detected.")
