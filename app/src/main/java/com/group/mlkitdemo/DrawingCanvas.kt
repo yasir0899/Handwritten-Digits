@@ -43,7 +43,7 @@ fun DrawingCanvas(
         Paint().apply {
             color = android.graphics.Color.BLACK
             style = Paint.Style.STROKE
-            strokeWidth = 15f // Increased stroke width to make it visible after resizing
+            strokeWidth = 20f // Increased stroke width to make it visible after resizing
             isAntiAlias = true
             strokeCap = Paint.Cap.ROUND
         }
@@ -126,6 +126,7 @@ fun DrawingCanvas(
 
             // Resize the bitmap to 28x28 for model input
             val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 28, 28, true)
+
 
             onBitmapReady(resizedBitmap) // Send processed bitmap
         }) {

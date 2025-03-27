@@ -2,7 +2,9 @@ package com.group.mlkitdemo
 
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -35,16 +37,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.group.mlkitdemo.ui.theme.MLKitDemoTheme
+import com.group.mlkitdemo.util.TFLiteCharacterHelper
 import com.group.mlkitdemo.util.TFLiteHelper
 
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var model: TFLiteHelper
+    private lateinit var model: TFLiteCharacterHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        model = TFLiteHelper(this)
+        model = TFLiteCharacterHelper(this)
         setContent {
             MLKitDemoTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { it ->
@@ -72,6 +75,7 @@ class MainActivity : ComponentActivity() {
         ) {
             // Drawing Canvas
             DrawingCanvas(onBitmapReady = { bitmap ->
+//                val bitmap = BitmapFactory.decodeResource(resources, R.drawable.digit_5)
                 prediction = convertBitmapAndPredict(bitmap)
                 recognizedBitmap = bitmap
                 showDialog = true
@@ -122,17 +126,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+//    private fun convertBitmapAndPredict(bitmap: Bitmap): String {
+//
+////        val inputArray = model.bitmapToFloatArray(bitmap)
+////        val result = model.predict(inputArray)
+//
+//        val result = model.predict(bitmap)
+//
+//        // Print the top prediction
+//        val predictedDigit = result.indices.maxByOrNull { result[it] } ?: -1
+//        println("Predicted Digit: $predictedDigit")
+//        return predictedDigit.toString()
+//    }
+
     private fun convertBitmapAndPredict(bitmap: Bitmap): String {
+        val bitmapTest = BitmapFactory.decodeResource(resources, R.drawable.letter_k)
+        val result = model.predict(model.convertToGrayscale(bitmapTest)) // Should return a FloatArray of size 26
 
-//        val inputArray = model.bitmapToFloatArray(bitmap)
-//        val result = model.predict(inputArray)
+        if (result.isEmpty()) {
+            Log.e("Prediction", "Empty prediction result")
+            return "Error"
+        }
 
-        val result = model.predict(bitmap)
+        val predictedIndex = result.indices.maxByOrNull { result[it] } ?: -1
+        Log.d("Prediction", "Predicted Character Index: $predictedIndex")
 
-        // Print the top prediction
-        val predictedDigit = result.indices.maxByOrNull { result[it] } ?: -1
-        println("Predicted Digit: $predictedDigit")
-        return predictedDigit.toString()
+        return predictedIndex.toString()
     }
 
 

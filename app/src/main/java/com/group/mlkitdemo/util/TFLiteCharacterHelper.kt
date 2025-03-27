@@ -2,6 +2,10 @@ package com.group.mlkitdemo.util
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
 import android.util.Log
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
@@ -9,7 +13,7 @@ import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 
-class TFLiteHelper(private val context: Context) {
+class TFLiteCharacterHelper(private val context: Context) {
 
     private var interpreter: Interpreter? = null
 
@@ -23,7 +27,7 @@ class TFLiteHelper(private val context: Context) {
     }
 
     private fun loadModelFile(): MappedByteBuffer {
-        val fileDescriptor = context.assets.openFd("digits.tflite")
+        val fileDescriptor = context.assets.openFd("model.tflite")
         val inputStream = fileDescriptor.createInputStream()
         val fileChannel = inputStream.channel
         return fileChannel.map(
@@ -61,11 +65,15 @@ class TFLiteHelper(private val context: Context) {
     }
 
 
+
     // Run inference with correct input shape (1,28,28,1)
     fun predict(bitmap: Bitmap): FloatArray {
         val inputBuffer = preprocessImage(bitmap)
 
-        val outputSize = 10
+        // Correct output size (26 classes)
+        val outputSize = 26 // Based on last Dense layer (None, 26)
+
+        // Allocate correct buffer size
         val outputBuffer = ByteBuffer.allocateDirect(4 * outputSize).order(ByteOrder.nativeOrder())
 
         interpreter?.run(inputBuffer, outputBuffer)
@@ -74,4 +82,18 @@ class TFLiteHelper(private val context: Context) {
         outputBuffer.rewind()
         return FloatArray(outputSize) { outputBuffer.float }
     }
+
+    fun convertToGrayscale(bitmap: Bitmap): Bitmap {
+        val grayscaleBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(grayscaleBitmap)
+        val paint = Paint()
+        val colorMatrix = ColorMatrix()
+        colorMatrix.setSaturation(0f)  // Remove color
+        val filter = ColorMatrixColorFilter(colorMatrix)
+        paint.colorFilter = filter
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        return grayscaleBitmap
+    }
+
+
 }
