@@ -121,6 +121,7 @@ class MainActivity : ComponentActivity() {
             else {
 
                 DrawAlphabetsCanvas(onBitmapReady = { bitmap ->
+                    //Load image from resources
                     val originalBitmap = model.loadAndResizeImage(this@MainActivity, R.drawable.letter_k)
                     // val originalBitmap =BitmapFactory.decodeResource(resources, R.drawable.letter_k)
                     val blurredBitmap =  model.applyGaussianBlurOpenCV( originalBitmap)
