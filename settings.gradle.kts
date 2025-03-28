@@ -16,8 +16,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://jitpack.io") // ✅ Correct Kotlin DSL syntax // ✅ Correct syntax
     }
 }
 
 rootProject.name = "ML kit Demo"
 include(":app")
+include(":opencv")

@@ -70,6 +70,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
   //  implementation(libs.digital.ink.recognition)
     implementation(libs.tensorflow.lite)
+    implementation (project(":opencv"))
 
 
 
