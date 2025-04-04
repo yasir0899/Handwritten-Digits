@@ -47,6 +47,7 @@ import com.group.mlkitdemo.util.TFLiteHelper
 import org.opencv.android.OpenCVLoader
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
 
 
 class MainActivity : ComponentActivity() {
@@ -122,45 +123,53 @@ class MainActivity : ComponentActivity() {
 
                 DrawAlphabetsCanvas(onBitmapReady = { bitmap ->
                     //Load image from resources
-                    val originalBitmap = model.loadAndResizeImage(this@MainActivity, R.drawable.letter_k)
-                    // val originalBitmap =BitmapFactory.decodeResource(resources, R.drawable.letter_k)
-                    val blurredBitmap =  model.applyGaussianBlurOpenCV( originalBitmap)
-                    Log.d("BitmapInfo", "blurredBitmap Width: ${blurredBitmap.width}, Height: ${blurredBitmap.height}")
-                    Log.d("BitmapInfo", "blurredBitmap Byte Count: ${blurredBitmap.byteCount} bytes")
-                    val grayscaleBitmap =  model.toGrayscale(blurredBitmap)
-                    Log.d("BitmapInfo", "grayscaleBitmap Width: ${grayscaleBitmap.width}, Height: ${grayscaleBitmap.height}")
-                    Log.d("BitmapInfo", "grayscaleBitmap Byte Count: ${grayscaleBitmap.byteCount} bytes")
-                    val thresholdBitmap =  model.applyThreshold(grayscaleBitmap)
-                    Log.d("BitmapInfo", "thresholdBitmap Width: ${thresholdBitmap.width}, Height: ${thresholdBitmap.height}")
-                    Log.d("BitmapInfo", "thresholdBitmap Byte Count: ${thresholdBitmap.byteCount} bytes")
-                    val resizedBitmap =  model.resizeTo28x28(thresholdBitmap)
-                    Log.d("BitmapInfo", "resizedBitmap Width: ${resizedBitmap.width}, Height: ${resizedBitmap.height}")
-                    Log.d("BitmapInfo", "resizedBitmap Byte Count: ${resizedBitmap.byteCount} bytes")
+//                    val originalBitmap = model.loadAndResizeImage(this@MainActivity, R.drawable.letter_k)
+//                    // val originalBitmap =BitmapFactory.decodeResource(resources, R.drawable.letter_k)
+//                    val blurredBitmap =  model.applyGaussianBlurOpenCV( originalBitmap)
+//                    Log.d("BitmapInfo", "blurredBitmap Width: ${blurredBitmap.width}, Height: ${blurredBitmap.height}")
+//                    Log.d("BitmapInfo", "blurredBitmap Byte Count: ${blurredBitmap.byteCount} bytes")
+//                    val grayscaleBitmap =  model.toGrayscale(blurredBitmap)
+//                    Log.d("BitmapInfo", "grayscaleBitmap Width: ${grayscaleBitmap.width}, Height: ${grayscaleBitmap.height}")
+//                    Log.d("BitmapInfo", "grayscaleBitmap Byte Count: ${grayscaleBitmap.byteCount} bytes")
+//                    val thresholdBitmap =  model.applyThreshold(grayscaleBitmap)
+//                    Log.d("BitmapInfo", "thresholdBitmap Width: ${thresholdBitmap.width}, Height: ${thresholdBitmap.height}")
+//                    Log.d("BitmapInfo", "thresholdBitmap Byte Count: ${thresholdBitmap.byteCount} bytes")
+//                    val resizedBitmap =  model.resizeTo28x28(thresholdBitmap)
+//                    Log.d("BitmapInfo", "resizedBitmap Width: ${resizedBitmap.width}, Height: ${resizedBitmap.height}")
+//                    Log.d("BitmapInfo", "resizedBitmap Byte Count: ${resizedBitmap.byteCount} bytes")
+//
+//                    saveBitmapToFile(blurredBitmap, "blurred.png", this@MainActivity)
+//                    saveBitmapToFile(grayscaleBitmap, "grayscale.png", this@MainActivity)
+//                    saveBitmapToFile(resizedBitmap, "resized.png", this@MainActivity)
+//
+//                      val processedBitmap =model. preprocessImageNew(BitmapFactory.decodeResource(resources, R.drawable.letter_k))
+//                      val predictionIndex = model.runModel(processedBitmap)
+//                      Toast.makeText(this@MainActivity, "Predicted Character: ${predictionIndex}", Toast.LENGTH_LONG).show()
+//
+//                    recognizedBitmap = resizedBitmap
+//                    showDialog = true
+//// Get predicted class index
+//                    val wordDict = mapOf(
+//                        0 to 'A', 1 to 'B', 2 to 'C', 3 to 'D', 4 to 'E', 5 to 'F', 6 to 'G', 7 to 'H',
+//                        8 to 'I', 9 to 'J', 10 to 'K', 11 to 'L', 12 to 'M', 13 to 'N', 14 to 'O', 15 to 'P',
+//                        16 to 'Q', 17 to 'R', 18 to 'S', 19 to 'T', 20 to 'U', 21 to 'V', 22 to 'W',
+//                        23 to 'X', 24 to 'Y', 25 to 'Z'
+//                    )
+//
+//                    val modelInput = model.bitmapToByteBuffer(resizedBitmap)
+//                    val predictionArray = model.predict(modelInput)
+//
+//                    val predictedIndex = predictionArray.indices.maxByOrNull { predictionArray[it] } ?: -1
+//                    val predictedCharacter = wordDict[predictedIndex]
+//                      prediction = predictedCharacter.toString()
 
-                    saveBitmapToFile(blurredBitmap, "blurred.png", this@MainActivity)
-                    saveBitmapToFile(grayscaleBitmap, "grayscale.png", this@MainActivity)
-                    saveBitmapToFile(resizedBitmap, "resized.png", this@MainActivity)
-
-                      val processedBitmap =model. preprocessImageNew(BitmapFactory.decodeResource(resources, R.drawable.letter_k))
-                      val predictionIndex = model.runModel(processedBitmap)
-                      Toast.makeText(this@MainActivity, "Predicted Character: ${predictionIndex}", Toast.LENGTH_LONG).show()
-
-                    recognizedBitmap = resizedBitmap
+                    val (inputBuffer, previewBitmap)  = model.preprocessImageNww(this@MainActivity, BitmapFactory.decodeResource(resources, R.drawable.letter_r))
+                    prediction= model.getPrediction(inputBuffer).toString() +" Alphabet index"
+                    //recognizedBitmap = model.preprocessAlphabetImageTest(this@MainActivity, BitmapFactory.decodeResource(resources, R.drawable.letter_r))
                     showDialog = true
-// Get predicted class index
-                    val wordDict = mapOf(
-                        0 to 'A', 1 to 'B', 2 to 'C', 3 to 'D', 4 to 'E', 5 to 'F', 6 to 'G', 7 to 'H',
-                        8 to 'I', 9 to 'J', 10 to 'K', 11 to 'L', 12 to 'M', 13 to 'N', 14 to 'O', 15 to 'P',
-                        16 to 'Q', 17 to 'R', 18 to 'S', 19 to 'T', 20 to 'U', 21 to 'V', 22 to 'W',
-                        23 to 'X', 24 to 'Y', 25 to 'Z'
-                    )
 
-                    val modelInput = model.bitmapToByteBuffer(resizedBitmap)
-                    val predictionArray = model.predict(modelInput)
+                    recognizedBitmap = previewBitmap
 
-                    val predictedIndex = predictionArray.indices.maxByOrNull { predictionArray[it] } ?: -1
-                    val predictedCharacter = wordDict[predictedIndex]
-                      prediction = predictedCharacter.toString()
 
                 }, onClear = { prediction = it })
 
@@ -266,4 +275,22 @@ class MainActivity : ComponentActivity() {
         outputStream.close()
         Log.d("BitmapDebug", "Saved at: ${file.absolutePath}")
     }
+
+    fun byteBufferToBitmap(buffer: ByteBuffer, width: Int, height: Int): Bitmap {
+        buffer.rewind()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val normalized = buffer.float
+                val gray = (normalized * 255).toInt().coerceIn(0, 255)
+                val pixel = android.graphics.Color.rgb(gray, gray, gray)
+                bitmap.setPixel(x, y, pixel)
+            }
+        }
+
+        return bitmap
+    }
+
+
 }

@@ -1,5 +1,6 @@
 package com.group.mlkitdemo.util
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,20 +9,12 @@ import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
-import android.renderscript.Allocation
-import android.renderscript.Element
-import android.renderscript.RenderScript
-import android.renderscript.ScriptIntrinsicBlur
 import android.util.Log
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.android.Utils.bitmapToMat
-import org.opencv.core.CvType
 import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
@@ -164,7 +157,7 @@ private var interpreter: Interpreter? = null
 
     fun loadAndResizeImage(context: Context, resId: Int): Bitmap {
         val bitmap = BitmapFactory.decodeResource(context.resources, resId)
-        return Bitmap.createScaledBitmap(bitmap, 400, 440, false)  // Resize to match Python
+        return Bitmap.createScaledBitmap(bitmap, 400, 440, true)  // Resize to match Python
     }
 //    fun applyGaussianBlur(context: Context, bitmap: Bitmap): Bitmap {
 //        val rs = RenderScript.create(context)
@@ -204,6 +197,7 @@ private var interpreter: Interpreter? = null
         paint.colorFilter = ColorMatrixColorFilter(cm)
         canvas.drawBitmap(bitmap, 0f, 0f, paint)
         return grayscaleBitmap
+
     }
 
     fun applyThreshold(bitmap: Bitmap): Bitmap {
@@ -244,7 +238,7 @@ private var interpreter: Interpreter? = null
 
     fun preprocessImageNew(bitmap: Bitmap): Bitmap {
         val mat = Mat()
-        Utils.bitmapToMat(bitmap, mat)
+        bitmapToMat(bitmap, mat)
 
         // Resize to (400, 440)
         val resizedMat = Mat()
@@ -314,6 +308,127 @@ private var interpreter: Interpreter? = null
         return predictionIndex
     }
 
+
+
+    fun preprocessAlphabetImage(context: Context, bitmap: Bitmap): ByteBuffer {
+        // Step 1: Resize to 400x440
+        val resized = Bitmap.createScaledBitmap(bitmap, 400, 440, true)
+
+        // Step 2: Convert Bitmap to Mat
+        val mat = Mat()
+        bitmapToMat(resized, mat)
+
+        // Step 3: Apply Gaussian Blur
+        Imgproc.GaussianBlur(mat, mat, Size(7.0, 7.0), 0.0)
+
+        // Step 4: Convert to Grayscale
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY)
+
+        // ✅ Step 5: Thresholding (background white, digit black)
+        Imgproc.threshold(mat, mat, 100.0, 255.0, Imgproc.THRESH_BINARY)
+
+        // Step 6: Resize to 28x28
+        val finalMat = Mat()
+        Imgproc.resize(mat, finalMat, Size(28.0, 28.0))
+
+        // ✅ Optional: See the processed 28x28 image
+
+        val debugBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(finalMat, debugBitmap)
+
+     //   val imageView = (context as Activity).findViewById<ImageView>(R.id.debugImageView)
+      //  imageView.setImageBitmap(debugBitmap)
+
+
+
+        // Step 7: Convert to ByteBuffer (1,28,28,1)
+        val buffer = ByteBuffer.allocateDirect(1 * 28 * 28 * 4)
+        buffer.order(ByteOrder.nativeOrder())
+
+        for (i in 0 until 28) {
+            for (j in 0 until 28) {
+                val pixel = finalMat.get(i, j)[0].toFloat()
+                val normalized = pixel / 255.0f
+                val invertedValue = 1.0f - (pixel / 255.0f)
+
+                buffer.putFloat(invertedValue)
+            }
+        }
+
+        return buffer
+    }
+
+    fun preprocessAlphabetImageTest(context: Context, bitmap: Bitmap): Bitmap {
+        // Step 1: Resize to 400x440
+        val resized = Bitmap.createScaledBitmap(bitmap, 400, 440, true)
+
+        // Step 2: Convert Bitmap to Mat
+        val mat = Mat()
+        bitmapToMat(resized, mat)
+
+        // Step 3: Apply Gaussian Blur
+      Imgproc.GaussianBlur(mat, mat, Size(7.0, 7.0), 0.0)
+
+        // Step 4: Convert to Grayscale
+        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY)
+
+        // ✅ Step 5: Thresholding (background white, digit black)
+     //   Imgproc.threshold(mat, mat, 100.0, 255.0, Imgproc.THRESH_BINARY)
+
+        // Step 6: Resize to 28x28
+        val finalMat = Mat()
+        Imgproc.resize(mat, finalMat, Size(28.0, 28.0))
+
+        // ✅ Optional: See the processed 28x28 image
+
+        val debugBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
+        Utils.matToBitmap(finalMat, debugBitmap)
+        return debugBitmap
+
+
+    }
+
+
+
+
+    fun getPrediction(input: ByteBuffer): Int {
+        Log.d("MLKitDemo", "Input ByteBuffer: $input")
+    val output = Array(1) { FloatArray(26) } // For 26 English letters
+    interpreter?.run(input, output)
+    val predictedIndex = output[0].indices.maxBy { output[0][it] } ?: -1
+    return predictedIndex
+}
+    fun preprocessImageNww(context: Context, bitmap: Bitmap): Pair<ByteBuffer, Bitmap> {
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 28, 28, true)
+
+        val grayBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
+
+        val byteBuffer = ByteBuffer.allocateDirect(4 * 1 * 28 * 28)
+        byteBuffer.order(ByteOrder.nativeOrder())
+
+        for (y in 0 until 28) {
+            for (x in 0 until 28) {
+                val pixel = resizedBitmap.getPixel(x, y)
+
+                val r = Color.red(pixel) / 255.0f
+                val g = Color.green(pixel) / 255.0f
+                val b = Color.blue(pixel) / 255.0f
+
+                var grayscale = (r + g + b) / 3.0f
+
+                // ✅ Invert if needed (make digits black, background white)
+               // grayscale = 1.0f - grayscale
+
+                byteBuffer.putFloat(grayscale)
+
+                val gray255 = (grayscale * 255).toInt().coerceIn(0, 255)
+                val displayColor = Color.rgb(gray255, gray255, gray255)
+                grayBitmap.setPixel(x, y, displayColor)
+            }
+        }
+
+        return Pair(byteBuffer, grayBitmap)
+    }
 
 
 }
