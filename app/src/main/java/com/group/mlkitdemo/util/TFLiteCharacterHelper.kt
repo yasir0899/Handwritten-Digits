@@ -1,112 +1,26 @@
 package com.group.mlkitdemo.util
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import android.util.Log
-import org.tensorflow.lite.Interpreter
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import org.opencv.android.Utils
 import org.opencv.android.Utils.bitmapToMat
 import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import org.tensorflow.lite.Interpreter
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
 
 class TFLiteCharacterHelper(private val context: Context) {
 
-//    private var interpreter: Interpreter? = null
-//
-//    init {
-//        interpreter = Interpreter(loadModelFile())
-//        val inputShape = interpreter?.getInputTensor(0)?.shape()
-//        Log.d(
-//            "Model Input Shape",
-//            "Shape: ${inputShape?.joinToString()}"
-//        )  // Should log: [1, 28, 28, 1]
-//    }
-//
-//    private fun loadModelFile(): MappedByteBuffer {
-//        val fileDescriptor = context.assets.openFd("model.tflite")
-//        val inputStream = fileDescriptor.createInputStream()
-//        val fileChannel = inputStream.channel
-//        return fileChannel.map(
-//            FileChannel.MapMode.READ_ONLY,
-//            fileDescriptor.startOffset,
-//            fileDescriptor.declaredLength
-//        )
-//    }
-//
-//    private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
-//        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 28, 28, true) // Resize image to 28x28
-//
-//        val byteBuffer =
-//            ByteBuffer.allocateDirect(4 * 1 * 28 * 28) // 4 bytes per float (1 batch, 28x28, 1 channel)
-//        byteBuffer.order(ByteOrder.nativeOrder())
-//
-//        val pixels = IntArray(28 * 28)
-//        resizedBitmap.getPixels(pixels, 0, 28, 0, 0, 28, 28)
-//
-//        for (i in pixels.indices) {
-//            val pixelValue = pixels[i]
-//            val r = (pixelValue shr 16 and 0xFF) / 255.0f  // Normalize Red
-//            val g = (pixelValue shr 8 and 0xFF) / 255.0f   // Normalize Green
-//            val b = (pixelValue and 0xFF) / 255.0f         // Normalize Blue
-//
-//            var grayscale = (r + g + b) / 3.0f // Convert to grayscale (average of RGB)
-//
-//            // Check if inversion is needed (if digits are black on white instead of white on black)
-//            grayscale = 1.0f - grayscale // Invert if necessary
-//
-//            byteBuffer.putFloat(grayscale) // Add normalized value to buffer
-//        }
-//
-//        return byteBuffer
-//    }
-//
-//
-//
-//    // Run inference with correct input shape (1,28,28,1)
-//    fun predict(bitmap: Bitmap): FloatArray {
-//        val inputBuffer = preprocessImage(bitmap)
-//
-//        // Correct output size (26 classes)
-//        val outputSize = 26 // Based on last Dense layer (None, 26)
-//
-//        // Allocate correct buffer size
-//        val outputBuffer = ByteBuffer.allocateDirect(4 * outputSize).order(ByteOrder.nativeOrder())
-//
-//        interpreter?.run(inputBuffer, outputBuffer)
-//
-//        // Convert ByteBuffer to FloatArray
-//        outputBuffer.rewind()
-//        return FloatArray(outputSize) { outputBuffer.float }
-//    }
-//
-//    fun convertToGrayscale(bitmap: Bitmap): Bitmap {
-//        val grayscaleBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
-//        val canvas = Canvas(grayscaleBitmap)
-//        val paint = Paint()
-//        val colorMatrix = ColorMatrix()
-//        colorMatrix.setSaturation(0f)  // Remove color
-//        val filter = ColorMatrixColorFilter(colorMatrix)
-//        paint.colorFilter = filter
-//        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-//        return grayscaleBitmap
-//    }
-//
-private var interpreter: Interpreter? = null
+    private var interpreter: Interpreter? = null
 
     init {
         try {
             val assetManager = context.assets
-            val fileDescriptor = assetManager.openFd("model.tflite")
+            val fileDescriptor = assetManager.openFd("character.tflite")
             val inputStream = fileDescriptor.createInputStream()
             val model = inputStream.readBytes()
             val buffer = ByteBuffer.allocateDirect(model.size)
@@ -120,315 +34,112 @@ private var interpreter: Interpreter? = null
         }
     }
 
-    fun predict(input: ByteBuffer): FloatArray {
-        val output = Array(1) { FloatArray(26) } // 1 batch, 26 classes (A-Z)
-        interpreter?.run(input, output)
-        return output[0]
-    }
+    fun predict(bitmap: Bitmap): String {
+//    val img=R.drawable.letter_q
+//    val bitmap  = BitmapFactory.decodeResource(context.resources, img)
+//    val resourceId = img
+//   val name = context.resources.getResourceEntryName(resourceId)
+        val name = "canvas_"
+        // Step 1: Convert Bitmap to OpenCV Mat
+        val mat = Mat()
+        bitmapToMat(bitmap, mat)
+
+        // Step 2: Clone the original for processing
+        val imgCopy = mat.clone()
+
+        // Step 3: Convert RGBA to BGR (OpenCV reads Bitmap as RGBA by default)
+        Imgproc.cvtColor(imgCopy, imgCopy, Imgproc.COLOR_RGBA2BGR)
+        // Step 4: Resize the image to (400, 440) (similar to Python code)
+        val resizedMat = Mat()
+        Imgproc.resize(mat, resizedMat, Size(400.0, 440.0))
+        saveBitmapToFile(matToBitmap(resizedMat), "${name}resized.png", context)
+
+        // Step 5: Apply Gaussian Blur to imgCopy (for noise reduction)
+        Imgproc.GaussianBlur(imgCopy, imgCopy, Size(7.0, 7.0), 0.0)
+        saveBitmapToFile(matToBitmap(imgCopy), "${name}blurred.png", context)
+        // Step 6: Convert to Grayscale
+        val imgGray = Mat()
+        Imgproc.cvtColor(imgCopy, imgGray, Imgproc.COLOR_BGR2GRAY)
+        saveBitmapToFile(matToBitmap(imgGray), "${name}grayscale.png", context)
+
+        // Step 7: Apply Thresholding (binary inverse)
+        val imgThresh = Mat()
+        Imgproc.threshold(imgGray, imgThresh, 100.0, 255.0, Imgproc.THRESH_BINARY_INV)
+        saveBitmapToFile(matToBitmap(imgThresh), "${name}threshold.png", context)
+
+        // Step 8: Resize to 28x28 (to match model input size)
+        val imgFinal = Mat()
+        Imgproc.resize(imgThresh, imgFinal, Size(28.0, 28.0))
+        saveBitmapToFile(matToBitmap(imgFinal), "${name}28*28.png", context)
 
 
-    fun preprocessImage(bitmap: Bitmap): ByteBuffer {
-        // Convert the image to 28x28
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 28, 28, true)
-
-        // Allocate buffer for 1x28x28x1 floats (4 bytes per float)
-        val byteBuffer = ByteBuffer.allocateDirect(1 * 28 * 28 * 1 * 4)
-        byteBuffer.order(ByteOrder.nativeOrder())
-
-        // Convert pixels to grayscale
-        for (y in 0 until 28) {
-            for (x in 0 until 28) {
-                val pixel = resizedBitmap.getPixel(x, y)
-
-                // Convert RGB to grayscale using weighted average
-                val r = Color.red(pixel)
-                val g = Color.green(pixel)
-                val b = Color.blue(pixel)
-
-                val grayscale = (0.299f * r + 0.587f * g + 0.114f * b) / 255.0f
-
-                byteBuffer.putFloat(grayscale)
+        // Step 9: Prepare the input array with shape (1, 28, 28, 1)
+        val inputArray = Array(1) { Array(28) { Array(28) { FloatArray(1) } } }
+        for (i in 0 until 28) {
+            for (j in 0 until 28) {
+                val pixel = imgFinal.get(i, j)[0].toFloat()
+                inputArray[0][i][j][0] = pixel   // Normalize the pixel value between 0 and 1
             }
         }
 
-        byteBuffer.rewind() // Reset buffer position
-        return byteBuffer
+        // Step 10: Run the model (assume interpreter is initialized)
+        val outputArray = Array(1) { FloatArray(26) }  // 26 letters A-Z
+
+        // Run the model to get the predictions
+        interpreter?.run(inputArray, outputArray)
+
+        // Mapping from the model output index to the corresponding character
+        val wordDict = mapOf(
+            0 to 'A',
+            1 to 'B',
+            2 to 'C',
+            3 to 'D',
+            4 to 'E',
+            5 to 'F',
+            6 to 'G',
+            7 to 'H',
+            8 to 'I',
+            9 to 'J',
+            10 to 'K',
+            11 to 'L',
+            12 to 'M',
+            13 to 'N',
+            14 to 'O',
+            15 to 'P',
+            16 to 'Q',
+            17 to 'R',
+            18 to 'S',
+            19 to 'T',
+            20 to 'U',
+            21 to 'V',
+            22 to 'W',
+            23 to 'X',
+            24 to 'Y',
+            25 to 'Z'
+        )
+
+        // Get the prediction index (the highest probability)
+        val predictionIndex = outputArray[0].indices.maxByOrNull { outputArray[0][it] } ?: -1
+        val predictedChar = wordDict[predictionIndex] ?: '?'  // Get the corresponding character
+
+        // Log the prediction result
+        Log.d("Prediction", "Predicted Character: $predictedChar")
+
+        return predictedChar.toString()
     }
 
-    fun loadAndResizeImage(context: Context, resId: Int): Bitmap {
-        val bitmap = BitmapFactory.decodeResource(context.resources, resId)
-        return Bitmap.createScaledBitmap(bitmap, 400, 440, true)  // Resize to match Python
-    }
-//    fun applyGaussianBlur(context: Context, bitmap: Bitmap): Bitmap {
-//        val rs = RenderScript.create(context)
-//        val input = Allocation.createFromBitmap(rs, bitmap)
-//        val output = Allocation.createFromBitmap(rs, bitmap)
-//
-//        val blurScript = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs))
-//        blurScript.setRadius(7f)  // Matches Python's 7x7 kernel
-//        blurScript.setInput(input)
-//        blurScript.forEach(output)
-//
-//        output.copyTo(bitmap)
-//        rs.destroy()
-//        return bitmap
-//    }
-
-    fun matToBitmap(mat: Mat): Bitmap {
+    private fun matToBitmap(mat: Mat): Bitmap {
         val bitmap = Bitmap.createBitmap(mat.cols(), mat.rows(), Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(mat, bitmap)
         return bitmap
     }
 
-
-    fun applyGaussianBlurOpenCV(bitmap: Bitmap): Bitmap {
-        val mat = Mat().apply { bitmapToMat(bitmap, this) }
-        Imgproc.GaussianBlur(mat, mat, Size(7.0, 7.0), 0.0)  // Same as Python (7x7)
-        return matToBitmap(mat)
+    private fun saveBitmapToFile(bitmap: Bitmap, filename: String, context: Context) {
+        val file = File(context.getExternalFilesDir(null), filename)
+        val outputStream = FileOutputStream(file)
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+        outputStream.flush()
+        outputStream.close()
+        Log.d("BitmapDebug", "Saved at: ${file.absolutePath}")
     }
-
-
-    fun toGrayscale(bitmap: Bitmap): Bitmap {
-        val grayscaleBitmap = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(grayscaleBitmap)
-        val paint = Paint()
-        val cm = ColorMatrix()
-        cm.setSaturation(0f)  // Remove color
-        paint.colorFilter = ColorMatrixColorFilter(cm)
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-        return grayscaleBitmap
-
-    }
-
-    fun applyThreshold(bitmap: Bitmap): Bitmap {
-        val width = bitmap.width
-        val height = bitmap.height
-        val binarizedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val pixel = bitmap.getPixel(x, y)
-                val gray = Color.red(pixel)  // Since grayscale, R=G=B
-                val binarizedColor = if (gray > 127) Color.WHITE else Color.BLACK  // Adaptive thresholding
-                binarizedBitmap.setPixel(x, y, binarizedColor)
-            }
-        }
-        return binarizedBitmap
-    }
-
-    fun resizeTo28x28(bitmap: Bitmap): Bitmap {
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 28, 28, false)  // Avoid blurring
-        return resizedBitmap
-    }
-
-
-    fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
-        val byteBuffer = ByteBuffer.allocateDirect(1 * 28 * 28 * 4)  // 1 batch, 28x28, 1 channel (float32)
-        byteBuffer.order(ByteOrder.nativeOrder())
-
-        for (y in 0 until 28) {
-            for (x in 0 until 28) {
-                val pixel = bitmap.getPixel(x, y)
-                val gray = Color.red(pixel) / 255.0f  // Normalize
-                byteBuffer.putFloat(gray)
-            }
-        }
-        return byteBuffer
-    }
-
-    fun preprocessImageNew(bitmap: Bitmap): Bitmap {
-        val mat = Mat()
-        bitmapToMat(bitmap, mat)
-
-        // Resize to (400, 440)
-        val resizedMat = Mat()
-        Imgproc.resize(mat, resizedMat, Size(400.0, 440.0))
-
-        // Convert to RGB
-        Imgproc.cvtColor(resizedMat, resizedMat, Imgproc.COLOR_BGR2RGB)
-
-        // Apply Gaussian Blur
-        val blurredMat = Mat()
-        Imgproc.GaussianBlur(resizedMat, blurredMat, Size(7.0, 7.0), 0.0)
-
-        // Convert to Grayscale
-        val grayMat = Mat()
-        Imgproc.cvtColor(blurredMat, grayMat, Imgproc.COLOR_BGR2GRAY)
-
-        // Apply Thresholding (Binary Inversion)
-        val thresholdMat = Mat()
-        Imgproc.threshold(grayMat, thresholdMat, 100.0, 255.0, Imgproc.THRESH_BINARY_INV)
-
-        // Resize to (28, 28) for model input
-        val finalMat = Mat()
-        Imgproc.resize(thresholdMat, finalMat, Size(28.0, 28.0))
-
-        // Convert back to RGB (to avoid OpenCV format error)
-        val rgbMat = Mat()
-        Imgproc.cvtColor(finalMat, rgbMat, Imgproc.COLOR_GRAY2RGB)
-
-        // Convert back to Bitmap (Use ARGB_8888)
-        val processedBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(rgbMat, processedBitmap)
-
-        // Release Mats to free memory
-        mat.release()
-        resizedMat.release()
-        blurredMat.release()
-        grayMat.release()
-        thresholdMat.release()
-        finalMat.release()
-        rgbMat.release()
-
-        return processedBitmap
-    }
-
-
-    fun bitmapToByteBufferNew(bitmap: Bitmap): ByteBuffer {
-        val byteBuffer = ByteBuffer.allocateDirect(1 * 28 * 28 * 1 * 4)
-        byteBuffer.order(ByteOrder.nativeOrder())
-
-        for (y in 0 until 28) {
-            for (x in 0 until 28) {
-                val pixel = bitmap.getPixel(x, y)
-                val value = Color.red(pixel) / 255.0f
-                byteBuffer.putFloat(value)
-            }
-        }
-        return byteBuffer
-    }
-    fun runModel( bitmap: Bitmap): Int {
-        val inputBuffer = bitmapToByteBufferNew(bitmap)
-        val outputArray = Array(1) { FloatArray(26) } // Assuming 26 classes (A-Z)
-
-        interpreter?.run(inputBuffer, outputArray)
-
-        val predictionIndex = outputArray[0].indices.maxByOrNull { outputArray[0][it] } ?: -1
-        Log.d("MLKitDemo", "Predicted Index: $predictionIndex")
-        return predictionIndex
-    }
-
-
-
-    fun preprocessAlphabetImage(context: Context, bitmap: Bitmap): ByteBuffer {
-        // Step 1: Resize to 400x440
-        val resized = Bitmap.createScaledBitmap(bitmap, 400, 440, true)
-
-        // Step 2: Convert Bitmap to Mat
-        val mat = Mat()
-        bitmapToMat(resized, mat)
-
-        // Step 3: Apply Gaussian Blur
-        Imgproc.GaussianBlur(mat, mat, Size(7.0, 7.0), 0.0)
-
-        // Step 4: Convert to Grayscale
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY)
-
-        // ✅ Step 5: Thresholding (background white, digit black)
-        Imgproc.threshold(mat, mat, 100.0, 255.0, Imgproc.THRESH_BINARY)
-
-        // Step 6: Resize to 28x28
-        val finalMat = Mat()
-        Imgproc.resize(mat, finalMat, Size(28.0, 28.0))
-
-        // ✅ Optional: See the processed 28x28 image
-
-        val debugBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(finalMat, debugBitmap)
-
-     //   val imageView = (context as Activity).findViewById<ImageView>(R.id.debugImageView)
-      //  imageView.setImageBitmap(debugBitmap)
-
-
-
-        // Step 7: Convert to ByteBuffer (1,28,28,1)
-        val buffer = ByteBuffer.allocateDirect(1 * 28 * 28 * 4)
-        buffer.order(ByteOrder.nativeOrder())
-
-        for (i in 0 until 28) {
-            for (j in 0 until 28) {
-                val pixel = finalMat.get(i, j)[0].toFloat()
-                val normalized = pixel / 255.0f
-                val invertedValue = 1.0f - (pixel / 255.0f)
-
-                buffer.putFloat(invertedValue)
-            }
-        }
-
-        return buffer
-    }
-
-    fun preprocessAlphabetImageTest(context: Context, bitmap: Bitmap): Bitmap {
-        // Step 1: Resize to 400x440
-        val resized = Bitmap.createScaledBitmap(bitmap, 400, 440, true)
-
-        // Step 2: Convert Bitmap to Mat
-        val mat = Mat()
-        bitmapToMat(resized, mat)
-
-        // Step 3: Apply Gaussian Blur
-      Imgproc.GaussianBlur(mat, mat, Size(7.0, 7.0), 0.0)
-
-        // Step 4: Convert to Grayscale
-        Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGB2GRAY)
-
-        // ✅ Step 5: Thresholding (background white, digit black)
-     //   Imgproc.threshold(mat, mat, 100.0, 255.0, Imgproc.THRESH_BINARY)
-
-        // Step 6: Resize to 28x28
-        val finalMat = Mat()
-        Imgproc.resize(mat, finalMat, Size(28.0, 28.0))
-
-        // ✅ Optional: See the processed 28x28 image
-
-        val debugBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(finalMat, debugBitmap)
-        return debugBitmap
-
-
-    }
-
-
-
-
-    fun getPrediction(input: ByteBuffer): Int {
-        Log.d("MLKitDemo", "Input ByteBuffer: $input")
-    val output = Array(1) { FloatArray(26) } // For 26 English letters
-    interpreter?.run(input, output)
-    val predictedIndex = output[0].indices.maxBy { output[0][it] } ?: -1
-    return predictedIndex
-}
-    fun preprocessImageNww(context: Context, bitmap: Bitmap): Pair<ByteBuffer, Bitmap> {
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 28, 28, true)
-
-        val grayBitmap = Bitmap.createBitmap(28, 28, Bitmap.Config.ARGB_8888)
-
-        val byteBuffer = ByteBuffer.allocateDirect(4 * 1 * 28 * 28)
-        byteBuffer.order(ByteOrder.nativeOrder())
-
-        for (y in 0 until 28) {
-            for (x in 0 until 28) {
-                val pixel = resizedBitmap.getPixel(x, y)
-
-                val r = Color.red(pixel) / 255.0f
-                val g = Color.green(pixel) / 255.0f
-                val b = Color.blue(pixel) / 255.0f
-
-                var grayscale = (r + g + b) / 3.0f
-
-                // ✅ Invert if needed (make digits black, background white)
-               // grayscale = 1.0f - grayscale
-
-                byteBuffer.putFloat(grayscale)
-
-                val gray255 = (grayscale * 255).toInt().coerceIn(0, 255)
-                val displayColor = Color.rgb(gray255, gray255, gray255)
-                grayBitmap.setPixel(x, y, displayColor)
-            }
-        }
-
-        return Pair(byteBuffer, grayBitmap)
-    }
-
-
 }

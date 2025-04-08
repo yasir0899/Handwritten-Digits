@@ -125,10 +125,11 @@ fun DrawAlphabetsCanvas(
             originalCanvas.drawPath(path, paint)
 
             // Resize the bitmap to 28x28 for model input
-            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 28, 28, true)
+           // val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 28, 28, true)
 
 
-            onBitmapReady(resizedBitmap) // Send processed bitmap
+            onBitmapReady(originalBitmap) // Send processed bitmap
+
         }) {
             Text("Recognize")
         }
